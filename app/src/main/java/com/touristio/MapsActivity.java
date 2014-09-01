@@ -1,12 +1,23 @@
 package com.touristio;
 
-import android.support.v4.app.FragmentActivity;
+import android.content.Context;
+import android.location.Address;
+import android.location.Geocoder;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class MapsActivity extends FragmentActivity {
 
@@ -29,11 +40,11 @@ public class MapsActivity extends FragmentActivity {
      * Sets up the map if it is possible to do so (i.e., the Google Play services APK is correctly
      * installed) and the map has not already been instantiated.. This will ensure that we only ever
      * call {@link #setUpMap()} once when {@link #mMap} is not null.
-     * <p>
+     * <p/>
      * If it isn't installed {@link SupportMapFragment} (and
      * {@link com.google.android.gms.maps.MapView MapView}) will show a prompt for the user to
      * install/update the Google Play services APK on their device.
-     * <p>
+     * <p/>
      * A user can return to this FragmentActivity after following the prompt and correctly
      * installing/updating/enabling the Google Play services. Since the FragmentActivity may not
      * have been completely destroyed during this process (it is likely that it would only be
@@ -53,13 +64,68 @@ public class MapsActivity extends FragmentActivity {
         }
     }
 
-    /**
-     * This is where we can add markers or lines, add listeners or move the camera. In this case, we
-     * just add a marker near Africa.
-     * <p>
-     * This should only be called once and when we are sure that {@link #mMap} is not null.
-     */
     private void setUpMap() {
-        mMap.addMarker(new MarkerOptions().position(new LatLng(0, 0)).title("Marker"));
+        new SearchCoordinatesTask(this).execute("London", "Berlin", "Blagoevgrad");
+    }
+
+    private void setMarker(String cityName, LatLng cityCoordinates) {
+        MarkerOptions marker = new MarkerOptions()
+                .position(cityCoordinates)
+                .title(cityName);
+        mMap.addMarker(marker);
+    }
+
+    private String getMapsApiKey() {
+        return getResources().getString(R.string.google_maps_key);
+    }
+
+    /**
+     * AsyncTask for searching for coordinates of cities,places etc
+     * <p/>
+     * Created following this example: http://developer.android.com/training/basics/network-ops/connecting.html
+     * and this example: http://developer.android.com/training/location/display-address.html
+     */
+    private class SearchCoordinatesTask extends AsyncTask<String, Void, Map<String, LatLng>> {
+
+        private Context mContext;
+        private Geocoder geocoder;
+
+        public SearchCoordinatesTask(Context context) {
+            mContext = context;
+            geocoder = new Geocoder(mContext, Locale.getDefault());
+        }
+
+        @Override
+        protected Map<String, LatLng> doInBackground(String... cityNames) {
+
+            Map<String, LatLng> coordinates = new HashMap<String, LatLng>();
+
+            for (String city : cityNames) {
+                coordinates.put(city, getCoordinates(city));
+            }
+
+            return coordinates;
+        }
+
+        private LatLng getCoordinates(String cityName) {
+            LatLng coordinates = null;
+            try {
+                List<Address> fromLocationName = geocoder.getFromLocationName(cityName, 1);
+                coordinates = new LatLng(fromLocationName.get(0).getLatitude(), fromLocationName.get(0).getLongitude());
+
+            } catch (IOException e) {
+                Log.e("ERROR", e.getMessage(), e);
+                coordinates = new LatLng(0, 0);
+            }
+
+            return coordinates;
+        }
+
+        @Override
+        protected void onPostExecute(Map<String, LatLng> cityCoordinates) {
+            for (String city : cityCoordinates.keySet()) {
+                setMarker(city, cityCoordinates.get(city));
+            }
+        }
     }
 }
